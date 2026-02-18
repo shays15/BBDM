@@ -37,16 +37,32 @@ class CustomAlignedDataset(Dataset):
         self.image_size = (dataset_config.image_size, dataset_config.image_size)
         image_paths_ori = get_image_paths_from_dir(os.path.join(dataset_config.dataset_path, f'{stage}/B'))
         image_paths_cond = get_image_paths_from_dir(os.path.join(dataset_config.dataset_path, f'{stage}/A'))
+        
+	# Print paths for debug
+        #print(f"Initialized {stage} dataset with:")
+        #print(f"  Original Image Paths: {len(image_paths_ori)} found in {os.path.join(dataset_config.dataset_path, f'{stage}/B')}")
+        #print(f"  Conditional Image Paths: {len(image_paths_cond)} found in {os.path.join(dataset_config.dataset_path, f'{stage}/A')}")
+        
+        
         self.flip = dataset_config.flip if stage == 'train' else False
         self.to_normal = dataset_config.to_normal
 
         self.imgs_ori = ImagePathDataset(image_paths_ori, self.image_size, flip=self.flip, to_normal=self.to_normal)
         self.imgs_cond = ImagePathDataset(image_paths_cond, self.image_size, flip=self.flip, to_normal=self.to_normal)
 
+	# Print flags
+        #print(f"  Flipping enabled: {self.flip}")
+        #print(f"  Normalization enabled: {self.to_normal}")
+        
     def __len__(self):
         return len(self.imgs_ori)
 
     def __getitem__(self, i):
+        # Retrieve and print image paths being accessed
+        orig_path = self.imgs_ori[i].image_path if hasattr(self.imgs_ori[i], 'image_path') else "N/A"
+        cond_path = self.imgs_cond[i].image_path if hasattr(self.imgs_cond[i], 'image_path') else "N/A"
+        #print(f"Accessing item {i}: Original path: {orig_path}, Conditional path: {cond_path}")
+        
         return self.imgs_ori[i], self.imgs_cond[i]
 
 

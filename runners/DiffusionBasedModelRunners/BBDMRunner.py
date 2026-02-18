@@ -181,7 +181,7 @@ class BBDMRunner(DiffusionBaseRunner):
         reverse_sample_path = make_dir(os.path.join(sample_path, 'reverse_sample'))
         reverse_one_step_path = make_dir(os.path.join(sample_path, 'reverse_one_step_samples'))
 
-        print(sample_path)
+        #print(sample_path)
 
         (x, x_name), (x_cond, x_cond_name) = batch
 
@@ -203,6 +203,9 @@ class BBDMRunner(DiffusionBaseRunner):
         #
         # sample = samples[-1]
         sample = net.sample(x_cond, clip_denoised=self.config.testing.clip_denoised).to('cpu')
+        #print("Sample values:", sample.min().item(), sample.max().item())
+        #print("Condition values:", x_cond.min().item(), x_cond.max().item())
+        #print("Ground truth values:", x.min().item(), x.max().item())
         image_grid = get_image_grid(sample, grid_size, to_normal=self.config.data.dataset_config.to_normal)
         im = Image.fromarray(image_grid)
         im.save(os.path.join(sample_path, 'skip_sample.png'))
@@ -244,10 +247,10 @@ class BBDMRunner(DiffusionBaseRunner):
                     gt = x[i]
                     result = sample[i]
                     if j == 0:
-                        save_single_image(condition, condition_path, f'{x_cond_name[i]}.png', to_normal=to_normal)
-                        save_single_image(gt, gt_path, f'{x_name[i]}.png', to_normal=to_normal)
+                        save_single_image(condition, condition_path, f'{x_cond_name[i]}.nii.gz', to_normal=to_normal)
+                        save_single_image(gt, gt_path, f'{x_name[i]}.nii.gz', to_normal=to_normal)
                     if sample_num > 1:
                         result_path_i = make_dir(os.path.join(result_path, x_name[i]))
-                        save_single_image(result, result_path_i, f'output_{j}.png', to_normal=to_normal)
+                        save_single_image(result, result_path_i, f'output_{j}.nii.gz', to_normal=to_normal)
                     else:
-                        save_single_image(result, result_path, f'{x_name[i]}.png', to_normal=to_normal)
+                        save_single_image(result, result_path, f'{x_name[i]}.nii.gz', to_normal=to_normal)
