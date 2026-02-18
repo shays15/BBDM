@@ -12,6 +12,8 @@ from runners.utils import weights_init, get_optimizer, get_dataset, make_dir, ge
 from tqdm.autonotebook import tqdm
 from torchsummary import summary
 
+import torch
+from model.BrownianBridge.ConditionalBrownianBridgeModel import ConditionalBrownianBridgeModel
 
 @Registers.runners.register_with_name('BBDMRunner')
 class BBDMRunner(DiffusionBaseRunner):
@@ -20,7 +22,11 @@ class BBDMRunner(DiffusionBaseRunner):
 
     def initialize_model(self, config):
         if config.model.model_type == "BBDM":
-            bbdmnet = BrownianBridgeModel(config.model).to(config.training.device[0])
+            # Use conditional model if theta is enabled
+            if hasattr(config.model, 'use_theta_conditioning') and config.model.use_theta_conditioning:
+                bbdmnet = ConditionalBrownianBridgeModel(config.model).to(config.training.device[0])
+            else:
+                bbdmnet = BrownianBridgeModel(config.model).to(config.training.device[0])
         elif config.model.model_type == "LBBDM":
             bbdmnet = LatentBrownianBridgeModel(config.model).to(config.training.device[0])
         else:
@@ -162,11 +168,23 @@ class BBDMRunner(DiffusionBaseRunner):
         self.logger(self.net.cond_latent_std)
 
     def loss_fn(self, net, batch, epoch, step, opt_idx=0, stage='train', write=True):
-        (x, x_name), (x_cond, x_cond_name) = batch
+        # Check if batch includes theta
+        if isinstance(batch, (list, tuple)) and len(batch) == 3:
+            (x, x_name), (x_cond, x_cond_name), theta = batch
+            theta = theta.to(self.config.training.device[0])
+        else:
+            (x, x_name), (x_cond, x_cond_name) = batch
+            theta = None
+        
         x = x.to(self.config.training.device[0])
         x_cond = x_cond.to(self.config.training.device[0])
-
-        loss, additional_info = net(x, x_cond)
+        
+        # Forward pass with theta
+        if theta is not None and hasattr(net, 'forward') and 'theta' in net.forward.__code__.co_varnames:
+            loss, additional_info = net(x, x_cond, theta)
+        else:
+            loss, additional_info = net(x, x_cond)
+        
         if write and self.is_main_process:
             self.writer.add_scalar(f'loss/{stage}', loss, step)
             if additional_info.__contains__('recloss_noise'):
@@ -180,16 +198,22 @@ class BBDMRunner(DiffusionBaseRunner):
         sample_path = make_dir(os.path.join(sample_path, f'{stage}_sample'))
         reverse_sample_path = make_dir(os.path.join(sample_path, 'reverse_sample'))
         reverse_one_step_path = make_dir(os.path.join(sample_path, 'reverse_one_step_samples'))
-
-        #print(sample_path)
-
-        (x, x_name), (x_cond, x_cond_name) = batch
-
+        
+        # Handle theta if present
+        if isinstance(batch, (list, tuple)) and len(batch) == 3:
+            (x, x_name), (x_cond, x_cond_name), theta = batch
+            theta = theta.to(self.config.training.device[0])
+        else:
+            (x, x_name), (x_cond, x_cond_name) = batch
+            theta = None
+        
         batch_size = x.shape[0] if x.shape[0] < 4 else 4
-
+        
         x = x[0:batch_size].to(self.config.training.device[0])
         x_cond = x_cond[0:batch_size].to(self.config.training.device[0])
-
+        if theta is not None:
+            theta = theta[0:batch_size]
+        
         grid_size = 4
 
         # samples, one_step_samples = net.sample(x_cond,
@@ -202,7 +226,13 @@ class BBDMRunner(DiffusionBaseRunner):
         #                  writer_tag=f'{stage}_one_step_sample' if stage != 'test' else None)
         #
         # sample = samples[-1]
-        sample = net.sample(x_cond, clip_denoised=self.config.testing.clip_denoised).to('cpu')
+        
+        # Sample with theta
+        if theta is not None and hasattr(net, 'sample') and 'theta' in net.sample.__code__.co_varnames:
+            sample = net.sample(x_cond, theta=theta, clip_denoised=self.config.testing.clip_denoised).to('cpu')
+        else:
+            sample = net.sample(x_cond, clip_denoised=self.config.testing.clip_denoised).to('cpu')
+        
         #print("Sample values:", sample.min().item(), sample.max().item())
         #print("Condition values:", x_cond.min().item(), x_cond.max().item())
         #print("Ground truth values:", x.min().item(), x.max().item())
