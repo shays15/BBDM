@@ -175,6 +175,7 @@ class CrossAttention(nn.Module):
         if context is not None:
             context = rearrange(context, 'b c h w -> b (h w) c')
         context = default(context, x)
+        # print(f"{context.shape=}")
         k = self.to_k(context)
         v = self.to_v(context)
 

@@ -47,6 +47,10 @@ class CustomAlignedDataset(Dataset):
         self.flip = dataset_config.flip if stage == 'train' else False
         self.to_normal = dataset_config.to_normal
 
+        # NEW: Add theta parameter
+        self.use_theta_conditioning = getattr(dataset_config, 'use_theta_conditioning', False)
+        self.theta_dim = getattr(dataset_config, 'theta_dim', 2)
+
         self.imgs_ori = ImagePathDataset(image_paths_ori, self.image_size, flip=self.flip, to_normal=self.to_normal)
         self.imgs_cond = ImagePathDataset(image_paths_cond, self.image_size, flip=self.flip, to_normal=self.to_normal)
 
@@ -62,9 +66,22 @@ class CustomAlignedDataset(Dataset):
         orig_path = self.imgs_ori[i].image_path if hasattr(self.imgs_ori[i], 'image_path') else "N/A"
         cond_path = self.imgs_cond[i].image_path if hasattr(self.imgs_cond[i], 'image_path') else "N/A"
         #print(f"Accessing item {i}: Original path: {orig_path}, Conditional path: {cond_path}")
-        
-        return self.imgs_ori[i], self.imgs_cond[i]
 
+        ori_item = self.imgs_ori[i]
+        cond_item = self.imgs_cond[i]
+
+        # NEW: Add theta conditioning
+        if self.use_theta_conditioning:
+            # For now, use [1, 0] for all samples (simplest case)
+            # theta = torch.tensor([1.0, 0.0], dtype=torch.float32)
+            theta = torch.zeros([2,224,224], dtype=torch.float32)
+            theta[0] = 0
+            theta[1] = 1
+            # print(f"{theta.shape=}")
+            
+            return ori_item, cond_item, theta
+        else:
+            return ori_item, cond_item
 
 @Registers.datasets.register_with_name('custom_colorization_LAB')
 class CustomColorizationLABDataset(Dataset):

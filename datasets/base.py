@@ -78,10 +78,10 @@ class ImagePathDataset(Dataset):
         #image = transform(image)
 
         if self.to_normal:
-            print(f"Before normalization: min={image.min().item()}, max={image.max().item()}")
+            #print(f"Before normalization: min={image.min().item()}, max={image.max().item()}")
             image = (image - 0.5) * 2.
             image.clamp_(-1., 1.)
-            print(f"After normalization: min={image.min().item()}, max={image.max().item()}")
+            #print(f"After normalization: min={image.min().item()}, max={image.max().item()}")
 
         image_name = Path(img_path).stem
         return image, image_name

@@ -21,6 +21,8 @@ data:
     channels: 1
     to_normal: True
     flip: False
+    use_theta_conditioning: True
+    theta_dim: 2
   train:
     batch_size: 1
     shuffle: True
@@ -32,8 +34,9 @@ data:
     # shuffle: False
 
 model:
-  model_name: "ConditionalBBDM" # part of result path
-  model_type: "ConditionalBBDM" # specify a module
+  model_name: "BBDM" # part of result path
+  model_type: "BBDM" # specify a module
+  use_theta_conditioning: True
   theta_dim: 2
   latent_before_quant_conv: False
   normalize_latent: False
@@ -81,8 +84,8 @@ model:
 
       UNetParams:
         image_size: 224
-        in_channels: 2
-        model_channels: 128
+        in_channels: 3
+        model_channels: 64 # 64
         out_channels: 1
         num_res_blocks: 2
         attention_resolutions: !!python/tuple
@@ -99,6 +102,6 @@ model:
         num_head_channels: 64
         use_scale_shift_norm: True
         resblock_updown: True
-        use_spatial_transformer: False
-        context_dim:
-        condition_key: "SpatialRescaler" # options {"SpatialRescaler", "first_stage", "nocond"}
+        use_spatial_transformer: True
+        context_dim: 2
+        condition_key: "crossattn" # options {"SpatialRescaler", "first_stage", "nocond"}

@@ -95,6 +95,8 @@ class BBDMRunner(DiffusionBaseRunner):
                                   shuffle=True,
                                   num_workers=8,
                                   drop_last=True)
+        for batch in train_loader:
+            print("theta shape:", batch['theta'].shape)
 
         total_ori_mean = None
         total_ori_var = None
@@ -211,9 +213,12 @@ class BBDMRunner(DiffusionBaseRunner):
         
         x = x[0:batch_size].to(self.config.training.device[0])
         x_cond = x_cond[0:batch_size].to(self.config.training.device[0])
-        if theta is not None:
-            theta = theta[0:batch_size]
-        
+
+        theta = torch.zeros([1,2,224,224], dtype=torch.float32)
+        theta[:,0] = 0
+        theta[:,1] = 1
+        theta = theta.to(self.config.training.device[0])
+
         grid_size = 4
 
         # samples, one_step_samples = net.sample(x_cond,
@@ -228,10 +233,10 @@ class BBDMRunner(DiffusionBaseRunner):
         # sample = samples[-1]
         
         # Sample with theta
-        if theta is not None and hasattr(net, 'sample') and 'theta' in net.sample.__code__.co_varnames:
-            sample = net.sample(x_cond, theta=theta, clip_denoised=self.config.testing.clip_denoised).to('cpu')
-        else:
-            sample = net.sample(x_cond, clip_denoised=self.config.testing.clip_denoised).to('cpu')
+        #if theta is not None and hasattr(net, 'sample') and 'theta' in net.sample.__code__.co_varnames:
+        sample = net.sample(x_cond, theta=theta, clip_denoised=self.config.testing.clip_denoised).to('cpu')
+        #else:
+        #    sample = net.sample(x_cond, clip_denoised=self.config.testing.clip_denoised).to('cpu')
         
         #print("Sample values:", sample.min().item(), sample.max().item())
         #print("Condition values:", x_cond.min().item(), x_cond.max().item())

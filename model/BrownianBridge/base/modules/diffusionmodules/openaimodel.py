@@ -739,19 +739,27 @@ class UNetModel(nn.Module):
             emb = emb + self.label_emb(y)
 
         if self.condition_key != 'nocond':
-            x = th.cat([x, context], dim=1)
+            x = th.cat([x, context], dim=1) # concatenate channel-wise
+        # if self.condition_key == 'concat':
+        #     x = th.cat([x, context], dim=1)
 
         h = x.type(self.dtype)
+        # print(f"Before loop: {h.shape=}")
         for module in self.input_blocks:
             h = module(h, emb, context)
+            # print(f"In loop: {h.shape=}")
             hs.append(h)
         h = self.middle_block(h, emb, context)
+        # print(f"After loop: {h.shape=}")
 
         for module in self.output_blocks:
             hspop = hs.pop()
             h = th.cat([h, hspop], dim=1)
+            # print(f"In output_blocks loop: {h.shape=}")
             h = module(h, emb, context)
         h = h.type(x.dtype)
+        # print(f"After output_blocks loop: {h.shape=}")
+
 
         if self.predict_codebook_ids:
             return self.id_predictor(h)
