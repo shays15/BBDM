@@ -95,8 +95,8 @@ class BBDMRunner(DiffusionBaseRunner):
                                   shuffle=True,
                                   num_workers=8,
                                   drop_last=True)
-        for batch in train_loader:
-            print("theta shape:", batch['theta'].shape)
+        # for batch in train_loader:
+            # print("theta shape:", batch['theta'].shape)
 
         total_ori_mean = None
         total_ori_var = None
@@ -214,11 +214,20 @@ class BBDMRunner(DiffusionBaseRunner):
         x = x[0:batch_size].to(self.config.training.device[0])
         x_cond = x_cond[0:batch_size].to(self.config.training.device[0])
 
-        theta = torch.zeros([1,2,224,224], dtype=torch.float32)
-        theta[:,0] = 0
-        theta[:,1] = 1
+        # Build batch theta according to filenames
+        theta = torch.zeros([batch_size, 2, 224, 224], dtype=torch.float32)
+        for i, name in enumerate(x_cond_name[:batch_size]):
+            if '_T1_' in str(name):
+                theta[i,0] = 1
+                theta[i,1] = 0
+            elif '_T2_' in str(name):
+                theta[i,0] = 0
+                theta[i,1] = 1
+            else:
+                print(f"Warning: Neither '_source0_' nor '_source1_' found in {name}")
+                theta[i,0] = 0
+                theta[i,1] = 0
         theta = theta.to(self.config.training.device[0])
-
         grid_size = 4
 
         # samples, one_step_samples = net.sample(x_cond,
@@ -259,6 +268,36 @@ class BBDMRunner(DiffusionBaseRunner):
         if stage != 'test':
             self.writer.add_image(f'{stage}_ground_truth', image_grid, self.global_step, dataformats='HWC')
 
+    # @torch.no_grad()
+    # def sample_to_eval(self, net, test_loader, sample_path):
+        # condition_path = make_dir(os.path.join(sample_path, f'condition'))
+        # gt_path = make_dir(os.path.join(sample_path, 'ground_truth'))
+        # result_path = make_dir(os.path.join(sample_path, str(self.config.model.BB.params.sample_step)))
+
+        # pbar = tqdm(test_loader, total=len(test_loader), smoothing=0.01)
+        # batch_size = self.config.data.test.batch_size
+        # to_normal = self.config.data.dataset_config.to_normal
+        # sample_num = self.config.testing.sample_num
+        # for test_batch in pbar:
+        #     (x, x_name), (x_cond, x_cond_name) = test_batch
+        #     x = x.to(self.config.training.device[0])
+        #     x_cond = x_cond.to(self.config.training.device[0])
+
+        #     for j in range(sample_num):
+        #         sample = net.sample(x_cond, clip_denoised=False)
+        #         # sample = net.sample_vqgan(x)
+        #         for i in range(batch_size):
+        #             condition = x_cond[i].detach().clone()
+        #             gt = x[i]
+        #             result = sample[i]
+        #             if j == 0:
+        #                 save_single_image(condition, condition_path, f'{x_cond_name[i]}.nii.gz', to_normal=to_normal)
+        #                 save_single_image(gt, gt_path, f'{x_name[i]}.nii.gz', to_normal=to_normal)
+        #             if sample_num > 1:
+        #                 result_path_i = make_dir(os.path.join(result_path, x_name[i]))
+        #                 save_single_image(result, result_path_i, f'output_{j}.nii.gz', to_normal=to_normal)
+        #             else:
+        #                 save_single_image(result, result_path, f'{x_name[i]}.nii.gz', to_normal=to_normal)
     @torch.no_grad()
     def sample_to_eval(self, net, test_loader, sample_path):
         condition_path = make_dir(os.path.join(sample_path, f'condition'))
@@ -269,18 +308,42 @@ class BBDMRunner(DiffusionBaseRunner):
         batch_size = self.config.data.test.batch_size
         to_normal = self.config.data.dataset_config.to_normal
         sample_num = self.config.testing.sample_num
+
         for test_batch in pbar:
-            (x, x_name), (x_cond, x_cond_name) = test_batch
+        #     print("\n--- NEW BATCH ---")
+        #     for idx, elem in enumerate(test_batch):
+        #         print(f"Element {idx}: {type(elem)}")
+        #         if hasattr(elem, 'shape'):
+        #             print(f"  shape: {elem.shape}")
+        #         elif isinstance(elem, (list, tuple)):
+        #             print(f"  len: {len(elem)}")
+        #         else:
+        #             print(f"  value: {elem}")
+
+            x, x_name = test_batch[0]
+            x_cond, x_cond_name = test_batch[1]
+            theta = test_batch[2]
+
+            # print("x.shape:", x.shape)
+            # print("x_cond.shape:", x_cond.shape)
+            # print("theta.shape:", theta.shape)
+            # print("x_name:", x_name)
+            # print("x_cond_name:", x_cond_name)
+
             x = x.to(self.config.training.device[0])
             x_cond = x_cond.to(self.config.training.device[0])
+            theta = theta.to(self.config.training.device[0])
 
             for j in range(sample_num):
-                sample = net.sample(x_cond, clip_denoised=False)
-                # sample = net.sample_vqgan(x)
+                sample = net.sample(x_cond, theta=theta, clip_denoised=False)
+                # print("sample.shape:", sample.shape)
                 for i in range(batch_size):
                     condition = x_cond[i].detach().clone()
                     gt = x[i]
                     result = sample[i]
+                    # print(f"Saving condition[{i}].shape:", condition.shape)
+                    # print(f"Saving gt[{i}].shape:", gt.shape)
+                    # print(f"Saving result[{i}].shape:", result.shape)
                     if j == 0:
                         save_single_image(condition, condition_path, f'{x_cond_name[i]}.nii.gz', to_normal=to_normal)
                         save_single_image(gt, gt_path, f'{x_name[i]}.nii.gz', to_normal=to_normal)
@@ -289,3 +352,6 @@ class BBDMRunner(DiffusionBaseRunner):
                         save_single_image(result, result_path_i, f'output_{j}.nii.gz', to_normal=to_normal)
                     else:
                         save_single_image(result, result_path, f'{x_name[i]}.nii.gz', to_normal=to_normal)
+
+                    # Print what goes into save_single_image
+                    # print(f"Calling save_single_image with shape: condition={condition.shape}, gt={gt.shape}, result={result.shape}")

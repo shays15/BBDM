@@ -2,10 +2,10 @@
 runner: "BBDMRunner"
 training:
   n_epochs: 200
-  n_steps: 400000
-  save_interval: 10
+  n_steps: 4000000
+  save_interval: 1
   sample_interval: 2
-  validation_interval: 10
+  validation_interval: 1
   accumulate_grad_batches: 2
 
 testing:
@@ -13,10 +13,10 @@ testing:
   sample_num: 5
 
 data:
-  dataset_name: 'conditional_beta_to_t1_224'
+  dataset_name: 'conditional_beta_to_t1_or_t2_224'
   dataset_type: 'custom_aligned'
   dataset_config:
-    dataset_path: '/iacl/pg25/savannah/projects/ddpm-github_cBBDM'
+    dataset_path: '/iacl/pg25/savannah/projects/ddpm-github_cBBDM_two_contrasts'
     image_size: 224
     channels: 1
     to_normal: True

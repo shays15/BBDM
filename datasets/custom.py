@@ -70,15 +70,25 @@ class CustomAlignedDataset(Dataset):
         ori_item = self.imgs_ori[i]
         cond_item = self.imgs_cond[i]
 
-        # NEW: Add theta conditioning
+        # print(type(self.imgs_ori[i]))
         if self.use_theta_conditioning:
-            # For now, use [1, 0] for all samples (simplest case)
-            # theta = torch.tensor([1.0, 0.0], dtype=torch.float32)
-            theta = torch.zeros([2,224,224], dtype=torch.float32)
-            theta[0] = 0
-            theta[1] = 1
+            ori_img, ori_path = ori_item
+            cond_img, cond_path = cond_item
+
+            filename_to_check = ori_path if ori_path is not None else cond_path
+
+            theta = torch.zeros([2, *self.image_size], dtype=torch.float32)
+            # print(f"{filename_to_check}")
+            if '_source0_' in str(filename_to_check):
+                theta[0] = 1
+                theta[1] = 0
+            elif '_source1_' in str(filename_to_check):
+                theta[0] = 0
+                theta[1] = 1
+            else:
+                print(f"Warning: Neither '_source0_' nor '_source1_' found in {filename_to_check}")
             # print(f"{theta.shape=}")
-            
+
             return ori_item, cond_item, theta
         else:
             return ori_item, cond_item
